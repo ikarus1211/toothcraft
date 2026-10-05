@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ToothCraft: automatic tooth design from a scan</title>
+<meta name="description" content="Send an arch scan, get back an STL of the missing or damaged tooth. A neural network from the Faculty of Information Technology, Brno University of Technology.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f7f9fc;
+    --surface: #ffffff;
+    --surface-2: #eef3fa;
+    --text: #15202e;
+    --muted: #5a6778;
+    --border: #dbe3ee;
+    --blue: #4f7fd1;
+    --blue-soft: #dce7fa;
+    --mint: #1fb982;
+    --mint-soft: #d6f5ea;
+    --amber: #b7791f;
+    --amber-soft: #fdf1dc;
+    --figure-bg: #ffffff;
+    --shadow: 0 1px 2px rgba(20,32,46,.05), 0 8px 24px rgba(20,32,46,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #0f141b; --surface: #171e28; --surface-2: #1d2633; --text: #e8edf4; --muted: #9aa7b8;
+      --border: #2a3545; --blue: #82a8ec; --blue-soft: #1f2d45; --mint: #4fd6a4; --mint-soft: #16342b;
+      --amber: #e3b35f; --amber-soft: #3a2e17; --figure-bg: #f4f6f9; --shadow: none;
+    }
+  }
+
+  /* Language switch: both languages are in the markup, CSS hides one.
+     The page therefore still reads correctly if JavaScript never runs. */
+  html[data-lang="en"] .cs { display: none !important; }
+  html[data-lang="cs"] .en { display: none !important; }
+
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+    font-size: 17px; line-height: 1.6; -webkit-font-smoothing: antialiased;
+  }
+  img { max-width: 100%; display: block; }
+  a { color: var(--blue); }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 0 16px; }
+
+  /* Header */
+  header.top {
+    position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, var(--bg) 88%, transparent);
+    backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
+  }
+  header.top .wrap { display: flex; align-items: center; gap: 16px; height: 58px; }
+  .brand { font-weight: 800; letter-spacing: -.02em; font-size: 19px; color: var(--text); text-decoration: none; }
+  .brand span { color: var(--mint); }
+  nav { margin-left: auto; }
+  nav a { color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; margin-left: 20px; }
+  nav a:hover { color: var(--text); }
+  @media (max-width: 860px) { nav { display: none; } }
+  .lang { margin-left: auto; display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; flex: none; }
+  nav + .lang { margin-left: 20px; }
+  .lang button { font: inherit; font-size: 13px; font-weight: 600; border: 0; border-left: 1px solid var(--border);
+    background: var(--surface); color: var(--muted); padding: 5px 10px; cursor: pointer; }
+  .lang button:first-child { border-left: 0; }
+  .lang button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  .head-logos { display: flex; align-items: center; gap: 8px; flex: none; }
+  .head-logos img { height: 30px; width: auto; background: #fff; border-radius: 6px; padding: 4px 6px; }
+  @media (max-width: 560px) { .head-logos { display: none; } }
+
+  /* Hero */
+  .hero { padding: 56px 0 8px; }
+  .eyebrow { display: inline-block; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase;
+    color: var(--mint); background: var(--mint-soft); padding: 4px 10px; border-radius: 999px; }
+  h1 { font-size: clamp(32px, 5vw, 50px); line-height: 1.08; letter-spacing: -.03em; margin: 18px 0 16px; font-weight: 800; }
+  h1 em { font-style: normal; color: var(--mint); }
+  .lede { font-size: 20px; color: var(--muted); max-width: 760px; margin: 0; }
+  .cta { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; align-items: center; }
+
+  /* Sections */
+  section { padding: 52px 0; border-top: 1px solid var(--border); }
+  h2 { font-size: clamp(25px, 3.2vw, 32px); letter-spacing: -.02em; line-height: 1.2; margin: 0 0 14px; }
+  h3 { font-size: 18px; margin: 0 0 6px; letter-spacing: -.01em; }
+  p { margin: 0 0 14px; }
+  .muted { color: var(--muted); }
+  .lead-p { font-size: 18px; color: var(--muted); max-width: 760px; }
+
+  figure { margin: 0; }
+  figcaption { font-size: 14px; color: var(--muted); margin-top: 10px; }
+  .fig { background: var(--figure-bg); border: 1px solid var(--border); border-radius: 14px; padding: 16px; box-shadow: var(--shadow); }
+  .fig figcaption { color: #5a6778; }
+  .hero-figure { margin-top: 36px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
+  .chips li { font-size: 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px; }
+  .chips li::before { content: "✓"; color: var(--mint); font-weight: 700; margin-right: 7px; }
+
+  /* Status block (what it does / does not do yet) */
+  .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
+  @media (max-width: 760px) { .status-grid { grid-template-columns: 1fr; } }
+  .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+  .status-card.good { border-top: 4px solid var(--mint); }
+  .status-card.todo { border-top: 4px solid var(--amber); }
+  .status-card p { margin: 0; color: var(--muted); font-size: 16px; }
+
+  /* Viewer */
+  .viewer-shell { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); margin-top: 22px; }
+  .picker { padding: 14px; border-bottom: 1px solid var(--border); background: var(--surface-2); }
+  .picker-row { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .picker-row .lbl { font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); margin-right: 6px; flex: none; }
+  .picker button, .modes button { font: inherit; font-size: 14px; font-variant-numeric: tabular-nums; border: 1px solid var(--border);
+    background: var(--surface); color: var(--text); padding: 5px 10px; border-radius: 8px; cursor: pointer; min-width: 40px; }
+  .picker button:hover, .modes button:hover { border-color: var(--blue); }
+  .picker button[aria-pressed="true"] { border-color: var(--mint); background: var(--mint-soft); font-weight: 600; }
+  .viewer-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-bottom: 1px solid var(--border); }
+  .viewer-bar .title { font-weight: 600; }
+  .viewer-bar .title small { font-weight: 400; color: var(--muted); margin-left: 6px; }
+  .modes { display: inline-flex; border: 1px solid var(--border); border-radius: 9px; overflow: hidden; }
+  .modes button { border: 0; border-radius: 0; border-left: 1px solid var(--border); }
+  .modes button:first-child { border-left: 0; }
+  .modes button[aria-pressed="true"] { background: var(--text); color: var(--bg); }
+  #viewer { position: relative; height: 460px; background: radial-gradient(circle at 50% 35%, #ffffff, #dfe5ed); touch-action: none; }
+  #viewer canvas { display: block; width: 100%; height: 100%; cursor: grab; }
+  #viewer canvas:active { cursor: grabbing; }
+  .panel-label { position: absolute; top: 12px; font-size: 13px; font-weight: 600; color: #3b4656; background: rgba(255,255,255,.85);
+    border: 1px solid #d5dce6; padding: 3px 10px; border-radius: 999px; transform: translateX(-50%); pointer-events: none; white-space: nowrap; }
+  .panel-sep { position: absolute; background: #cfd7e2; pointer-events: none; }
+  .viewer-hint { position: absolute; right: 12px; bottom: 10px; font-size: 12px; color: #5a6778; pointer-events: none; }
+  @media (max-width: 640px) { #viewer { height: 700px; } }
+
+  /* What we need from you */
+  .req-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 24px; }
+  @media (max-width: 820px) { .req-grid { grid-template-columns: 1fr; } }
+  .req { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .req.required { border-top: 4px solid var(--blue); }
+  .req.optional { border-top: 4px solid var(--mint); }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; border-radius: 6px; padding: 2px 8px; margin-bottom: 10px; }
+  .required .badge { background: var(--blue-soft); color: var(--blue); }
+  .optional .badge { background: var(--mint-soft); color: var(--mint); }
+  .req ul { margin: 10px 0 0; padding-left: 20px; }
+  .req li { margin-bottom: 10px; }
+  .req li small { display: block; color: var(--muted); font-size: 14px; }
+  code { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .88em; background: var(--surface-2);
+    border: 1px solid var(--border); padding: 1px 5px; border-radius: 5px; }
+
+  .flow { display: flex; align-items: stretch; gap: 10px; margin-top: 24px; flex-wrap: wrap; }
+  .flow div { flex: 1 1 180px; background: var(--surface-2); border: 1px solid var(--border); border-radius: 12px; padding: 14px; font-size: 15px; }
+  .flow b { display: block; margin-bottom: 2px; }
+
+  .privacy { margin-top: 20px; border-left: 4px solid var(--mint); background: var(--mint-soft); border-radius: 0 12px 12px 0; padding: 16px 20px; }
+  .privacy .tag { font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--mint); }
+  .privacy p { margin: 6px 0 0; }
+
+  .send { margin-top: 20px; display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; flex-wrap: wrap;
+    background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 22px; }
+  .send p { color: var(--muted); font-size: 16px; }
+  .mails { list-style: none; padding: 0; margin: 0; display: grid; gap: 6px; }
+  .mails a { font-weight: 600; text-decoration: none; }
+  .mails a:hover { text-decoration: underline; }
+  .mails span { color: var(--muted); font-size: 14px; margin-left: 8px; }
+  .btn { display: inline-block; background: var(--mint); color: #062b1d; font-weight: 700; text-decoration: none; border-radius: 10px; padding: 11px 20px; }
+  .btn:hover { filter: brightness(1.05); }
+  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  .btn.ghost:hover { border-color: var(--blue); }
+
+  footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 14px 0 28px; }
+  .links a { text-decoration: none; font-size: 14px; font-weight: 600; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text); border-radius: 10px; padding: 8px 14px; }
+  .links a:hover { border-color: var(--blue); }
+  .logos { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; margin-top: 24px; }
+  .logo { background: #fff; display: inline-flex; align-items: center; padding: 10px 14px; border-radius: 10px; border: 1px solid var(--border); height: 60px; }
+  .logo img { height: 36px; width: auto; }
+  .cite { font-size: 13px; color: var(--muted); margin-top: 18px; }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#">Tooth<span>Craft</span></a>
+    <nav>
+      <a href="#results"><span class="en">Results</span><span class="cs">Výsledky</span></a>
+      <a href="#viewer-section"><span class="en">3D</span><span class="cs">3D</span></a>
+      <a href="#try"><span class="en">Try it on your cases</span><span class="cs">Vyzkoušet na svých případech</span></a>
+      <a href="#contact"><span class="en">Contact</span><span class="cs">Kontakt</span></a>
+    </nav>
+    <div class="lang" role="group" aria-label="Language / Jazyk">
+      <button data-set-lang="en" aria-pressed="true">EN</button>
+      <button data-set-lang="cs" aria-pressed="false">CZ</button>
+    </div>
+    <div class="head-logos">
+      <img src="assets/fit_logo.png" alt="Brno University of Technology, Faculty of Information Technology">
+      <img src="assets/czai_logo.png" alt="Czech AI Factory (CZAI)">
+    </div>
+  </div>
+</header>
+
+<main>
+  <!-- HERO: what it does, in one breath, then the output -->
+  <div class="hero">
+    <div class="wrap">
+      <span class="eyebrow en">For dental laboratories</span>
+      <span class="eyebrow cs">Pro zubní laboratoře</span>
+
+      <h1 class="en">A missing or damaged tooth, <em>designed from the scan</em>.</h1>
+      <h1 class="cs">Chybějící nebo poškozený zub, <em>navržený ze skenu</em>.</h1>
+
+      <p class="lede en">Send us a scan of the arch and tell us which tooth. You get back an <strong>STL of the tooth</strong>, shaped to this patient, fitted to the neighbouring teeth and aligned with your scan, ready to open in your CAD software. Behind it is a neural network trained on thousands of real arches.</p>
+      <p class="lede cs">Pošlete nám sken čelisti a napište, o který zub jde. Vrátíme vám <strong>STL zubu</strong> tvarované pro konkrétního pacienta, dosazené k sousedním zubům a zarovnané s vaším skenem, stačí otevřít ve vašem CADu. Stojí za tím neuronová síť natrénovaná na tisících reálných čelistí.</p>
+
+      <div class="cta">
+        <a class="btn" href="#try"><span class="en">Try it on your own cases</span><span class="cs">Vyzkoušet na svých případech</span></a>
+        <a class="btn ghost" href="#viewer-section"><span class="en">See it in 3D</span><span class="cs">Prohlédnout ve 3D</span></a>
+      </div>
+
+      <figure class="fig hero-figure">
+        <img class="en" src="assets/generated/result_crown_en.png" alt="A molar prepared for a crown: the input scan, the technician's design, and the ToothCraft output side by side.">
+        <img class="cs" src="assets/generated/result_crown_cs.png" alt="Molár připravený na korunku: vstupní sken, návrh technika a výstup ToothCraft vedle sebe.">
+        <figcaption class="en">A real case: a molar prepared for a crown. ToothCraft sees only the left column. The middle column is what it generated; the right column is what a technician designed for the same case.</figcaption>
+        <figcaption class="cs">Reálný případ: molár připravený na korunku. ToothCraft vidí pouze levý sloupec. Prostřední sloupec vygeneroval sám, pravý je návrh technika ke stejnému případu.</figcaption>
+      </figure>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <section id="results">
+    <div class="wrap">
+      <h2 class="en">What it can do</h2>
+      <h2 class="cs">Co to umí</h2>
+      <p class="lead-p en">Whole crowns on prepared teeth, inlays and onlays, and teeth that are missing altogether, in the upper and the lower jaw. The examples below are real patient scans, not demos: the tooth was removed from the scan, so the original is known and can be put next to what the network generated.</p>
+      <p class="lead-p cs">Celé korunky na preparovaných zubech, inlaye a onlaye i zcela chybějící zuby, v horní i dolní čelisti. Níže jsou reálné skeny pacientů, ne ukázky nanečisto: zub byl ze skenu odebrán, takže původní zub známe a můžeme ho postavit vedle toho, co síť vygenerovala.</p>
+
+      <ul class="chips en">
+        <li>Full crowns</li><li>Inlays</li><li>Onlays / overlays</li><li>Missing teeth</li><li>Upper &amp; lower jaw</li>
+      </ul>
+      <ul class="chips cs">
+        <li>Celé korunky</li><li>Inlaye</li><li>Onlaye / overlaye</li><li>Chybějící zuby</li><li>Horní i dolní čelist</li>
+      </ul>
+
+      <figure class="fig" style="margin-top:28px">
+        <img class="en" src="assets/generated/result_cases_en.png" alt="Three real cases of missing teeth: input scan, technician's design, and ToothCraft output.">
+        <img class="cs" src="assets/generated/result_cases_cs.png" alt="Tři reálné případy chybějících zubů: vstupní sken, návrh technika a výstup ToothCraft.">
+        <figcaption class="en">Three further cases: a missing incisor, a prepared molar and a prepared premolar. In each row the scan context is identical, so the only thing that changes is the tooth.</figcaption>
+        <figcaption class="cs">Tři další případy: chybějící řezák, preparovaný molár a preparovaný premolár. V každém řádku je okolní sken stejný, mění se jen zub.</figcaption>
+      </figure>
+
+      <div class="status-grid" style="margin-top:32px">
+        <div class="status-card good">
+          <h3 class="en">What it gets right today</h3>
+          <h3 class="cs">Co už dnes funguje</h3>
+          <p class="en">The shape, size and position of the tooth, the contact with both neighbours, and the overall anatomy of the occlusal surface. The result is a watertight mesh in the coordinate system of your scan.</p>
+          <p class="cs">Tvar, velikost a pozice zubu, kontakt s oběma sousedy a celková anatomie okluzní plochy. Výsledkem je vodotěsná síť v souřadnicích vašeho skenu.</p>
+        </div>
+        <div class="status-card todo">
+          <h3 class="en">What it does not do yet</h3>
+          <h3 class="cs">Co zatím neumí</h3>
+          <p class="en">Fine surface detail. Fissures and ridges still come out smoothed, so the result is a starting shape for the technician rather than a finished restoration. This is what we are working on right now, and it is exactly where scans from a laboratory would help us most.</p>
+          <p class="en" style="margin-top:10px">On speed: the network itself runs in <strong>seconds</strong>. The manual preparation and export around it add a few minutes per case. Automating that is routine work, set up once per scanner and export format.</p>
+          <p class="cs">Jemný povrchový detail. Fisury a hrany zatím vycházejí vyhlazené, takže výsledek je spíš výchozí tvar pro technika než hotová náhrada. Přesně na tom teď pracujeme a právě tady by nám skeny z laboratoře pomohly nejvíc.</p>
+          <p class="cs" style="margin-top:10px">K rychlosti: samotná síť běží v <strong>sekundách</strong>. Ruční příprava a export kolem toho přidají několik minut na případ. Automatizace je rutinní práce, nastaví se jednou pro daný skener a formát.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3D VIEWER -->
+  <section id="viewer-section">
+    <div class="wrap">
+      <h2 class="en">Turn it around yourself</h2>
+      <h2 class="cs">Prohlédněte si to ve 3D</h2>
+      <p class="lead-p en">Four cases you can inspect from any angle: an incisor, a premolar and two molars. Pick a tooth by its number. All three views rotate together, so you can put the ToothCraft result straight next to what the technician designed for the same scan.</p>
+      <p class="lead-p cs">Čtyři případy, které si můžete prohlédnout z libovolného úhlu: řezák, premolár a dva moláry. Vyberte zub podle čísla. Všechny tři pohledy se otáčejí současně, takže výsledek ToothCraft postavíte přímo vedle toho, co k témuž skenu navrhl technik.</p>
+
+      <div class="viewer-shell">
+        <div class="picker">
+          <div class="picker-row" id="picker-row">
+            <span class="lbl en">Tooth (FDI)</span><span class="lbl cs">Zub (FDI)</span>
+          </div>
+        </div>
+        <div class="viewer-bar">
+          <div class="title" id="case-title"><span class="en">Loading models…</span><span class="cs">Načítám modely…</span></div>
+          <div class="modes" id="modes" role="group" aria-label="View">
+            <button data-mode="compare" aria-pressed="true"><span class="en">Side by side</span><span class="cs">Vedle sebe</span></button>
+            <button data-mode="0" aria-pressed="false"><span class="en">Scan</span><span class="cs">Sken</span></button>
+            <button data-mode="1" aria-pressed="false">ToothCraft</button>
+            <button data-mode="2" aria-pressed="false"><span class="en">Technician</span><span class="cs">Technik</span></button>
+          </div>
+        </div>
+        <div id="viewer">
+          <div class="viewer-hint en">Drag to rotate · scroll to zoom · right-drag to pan</div>
+          <div class="viewer-hint cs">Tažením otáčíte · kolečkem přibližujete · pravým tlačítkem posouváte</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TRY IT: what we need from the lab -->
+  <section id="try">
+    <div class="wrap">
+      <h2 class="en">Try it on your own cases</h2>
+      <h2 class="cs">Vyzkoušejte to na svých případech</h2>
+      <p class="lead-p en">We will run ToothCraft on a few of your cases and send the results back, so you can judge it on your own work. Nothing beyond a standard intraoral scanner export is needed and you do not have to install anything.</p>
+      <p class="lead-p cs">Spustíme ToothCraft na několika vašich případech a výsledky vám pošleme zpět, abyste si metodu mohli posoudit na vlastní práci. Nepotřebujete nic nad rámec běžného exportu z intraorálního skeneru a nic nemusíte instalovat.</p>
+
+      <div class="privacy" style="border-left-color: var(--blue); background: var(--blue-soft); margin-bottom: 4px">
+        <div class="tag en" style="color: var(--blue)">What it costs</div>
+        <div class="tag cs" style="color: var(--blue)">Co to stojí</div>
+        <p class="en">A trial batch is <strong>free</strong>: it is a demonstration, and your feedback is worth more to us than a fee. Running this at production volume is a different matter, and goes through the <strong>Czech AI Factory (CZAI)</strong> programme, which you would join as a partner. Ask us and we will explain what that involves before you send anything.</p>
+        <p class="cs">Zkušební dávka je <strong>zdarma</strong>, je to ukázka a vaše zpětná vazba má pro nás větší cenu než poplatek. Provoz v produkčním objemu je jiná věc a běží přes program <strong>Czech AI Factory (CZAI)</strong>, do kterého byste vstoupili jako partner. Napište si o podrobnosti, rádi vám je vysvětlíme ještě předtím, než nám cokoli pošlete.</p>
+      </div>
+
+      <div class="req-grid">
+        <div class="req required">
+          <span class="badge en">What we need</span>
+          <span class="badge cs">Co potřebujeme</span>
+          <h3 class="en">For each case</h3>
+          <h3 class="cs">Ke každému případu</h3>
+          <ul class="en">
+            <li><strong>The arch scan as <code>.stl</code> or <code>.obj</code></strong>
+              <small>The whole arch, or at least the region around the tooth including both neighbours.</small></li>
+            <li><strong>Which tooth</strong> should be added or repaired
+              <small>The tooth number (e.g. 36) is enough.</small></li>
+            <li><strong>Which jaw</strong>: upper or lower</li>
+          </ul>
+          <ul class="cs">
+            <li><strong>Sken čelisti ve formátu <code>.stl</code> nebo <code>.obj</code></strong>
+              <small>Celá čelist, nebo alespoň okolí zubu včetně obou sousedů.</small></li>
+            <li><strong>Který zub</strong> se má doplnit nebo opravit
+              <small>Stačí číslo zubu (např. 36).</small></li>
+            <li><strong>Která čelist</strong>: horní, nebo dolní</li>
+          </ul>
+        </div>
+
+        <div class="req optional">
+          <span class="badge en">Helps, but not required</span>
+          <span class="badge cs">Pomůže, ale není nutné</span>
+          <h3 class="en">If you have it</h3>
+          <h3 class="cs">Pokud to máte</h3>
+          <ul class="en">
+            <li><strong>The opposing jaw scan</strong>
+              <small>Lets the method shape the occlusal surface to the bite.</small></li>
+            <li><strong>Tooth and gingiva labels</strong>
+              <small>If your software can export which part of the mesh is which tooth, it saves us the manual step. Any format you already use is fine.</small></li>
+            <li><strong>A finished design for the same case</strong>
+              <small>Even a handful lets us measure how close we are to your work.</small></li>
+          </ul>
+          <ul class="cs">
+            <li><strong>Sken protilehlé čelisti</strong>
+              <small>Umožní metodě tvarovat okluzní plochu podle skusu.</small></li>
+            <li><strong>Označení zubů a gingivy</strong>
+              <small>Pokud váš software umí exportovat, která část sítě je který zub, ušetří nám to ruční krok. Postačí formát, který už používáte.</small></li>
+            <li><strong>Hotový návrh ke stejnému případu</strong>
+              <small>I pár kusů nám umožní změřit, jak blízko jsme vaší práci.</small></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="flow">
+        <div class="en"><b>1 · You send</b>The scan, the tooth number and the jaw</div>
+        <div class="en"><b>2 · We process</b>Minutes per case, so a batch comes back within days</div>
+        <div class="en"><b>3 · You receive</b>The tooth as an <code>.stl</code>, aligned to your scan</div>
+        <div class="cs"><b>1 · Pošlete</b>Sken, číslo zubu a čelist</div>
+        <div class="cs"><b>2 · Zpracujeme</b>Minuty na případ, dávku tedy vrátíme během několika dní</div>
+        <div class="cs"><b>3 · Dostanete</b>Zub jako <code>.stl</code> zarovnaný s vaším skenem</div>
+      </div>
+
+      <div class="privacy">
+        <div class="tag en">Your data stays yours</div>
+        <div class="tag cs">Vaše data zůstávají vaše</div>
+        <p class="en">Scans you send us are used only to process your cases. We will not use them to train our models, and we will not publish them, unless you explicitly allow it.</p>
+        <p class="cs">Skeny, které nám pošlete, použijeme výhradně ke zpracování vašich případů. Nepoužijeme je k trénování modelů ani je nezveřejníme, pokud nám to výslovně nedovolíte.</p>
+      </div>
+
+      <div class="send">
+        <div>
+          <h3 class="en">Where to send it</h3>
+          <h3 class="cs">Kam to poslat</h3>
+          <p class="en">Write to either of us. For large files a download link (cloud share) works best.</p>
+          <p class="cs">Napište kterémukoli z nás. U velkých souborů je nejlepší odkaz ke stažení (cloudové úložiště).</p>
+          <ul class="mails">
+            <li><a href="mailto:ipukanec@fit.vut.cz">ipukanec@fit.vut.cz</a> <span>Dávid Pukanec</span></li>
+            <li><a href="mailto:spanel@fit.vut.cz">spanel@fit.vut.cz</a> <span>Michal Španěl</span></li>
+          </ul>
+        </div>
+        <a class="btn" href="mailto:ipukanec@fit.vut.cz,spanel@fit.vut.cz?subject=ToothCraft">
+          <span class="en">Email us both</span><span class="cs">Napsat nám oběma</span>
+        </a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer id="contact">
+  <div class="wrap">
+    <h2 class="en">Who is behind this</h2>
+    <h2 class="cs">Kdo za tím stojí</h2>
+    <p class="lead-p en">We are a research group at the <strong>Faculty of Information Technology, Brno University of Technology</strong>, working on 3D machine learning for medical and dental data:
+      <a href="https://www.fit.vut.cz/person/ipukanec/.en">Dávid Pukanec</a>,
+      <a href="https://www.fit.vut.cz/person/ikubik/.en">Tibor Kubík</a> and
+      <a href="https://www.fit.vut.cz/person/spanel/.en">Michal Španěl</a>.
+      ToothCraft was published at VISAPP 2026.</p>
+    <p class="lead-p cs">Jsme výzkumná skupina na <strong>Fakultě informačních technologií VUT v Brně</strong> a zabýváme se 3D strojovým učením pro medicínská a dentální data:
+      <a href="https://www.fit.vut.cz/person/ipukanec/">Dávid Pukanec</a>,
+      <a href="https://www.fit.vut.cz/person/ikubik/">Tibor Kubík</a> a
+      <a href="https://www.fit.vut.cz/person/spanel/">Michal Španěl</a>.
+      ToothCraft byl publikován na konferenci VISAPP 2026.</p>
+
+    <div class="links">
+      <a class="en" href="toothcraft-brief-en.pdf">What we are looking for (PDF)</a>
+      <a class="cs" href="toothcraft-brief-cs.pdf">Co hledáme (PDF)</a>
+      <a href="https://arxiv.org/abs/2603.26588"><span class="en">Paper (arXiv)</span><span class="cs">Článek (arXiv)</span></a>
+      <a href="https://github.com/ikarus1211/VISAPP_ToothCraft"><span class="en">Code (GitHub)</span><span class="cs">Kód (GitHub)</span></a>
+    </div>
+
+    <ul class="mails">
+      <li><a href="mailto:ipukanec@fit.vut.cz">ipukanec@fit.vut.cz</a> <span>Ing. Dávid Pukanec</span></li>
+      <li><a href="mailto:spanel@fit.vut.cz">spanel@fit.vut.cz</a> <span>doc. Ing. Michal Španěl, Ph.D.</span></li>
+    </ul>
+
+    <div class="logos">
+      <div class="logo"><img src="assets/fit_logo.png" alt="Brno University of Technology, Faculty of Information Technology"></div>
+      <div class="logo"><img src="assets/czai_logo.png" alt="Czech AI Factory (CZAI)"></div>
+    </div>
+    <p class="cite">Pukanec D., Kubík T., Španěl M. <em>From Synthetic Data to Real Restorations: Diffusion Model for Patient-specific Dental Crown Completion.</em> VISAPP 2026, pp. 734–742.</p>
+  </div>
+</footer>
+
+<script>
+// Language switch. Both languages live in the markup; this only flips an
+// attribute that the stylesheet reacts to.
+(function () {
+  const buttons = document.querySelectorAll('[data-set-lang]');
+  function set(lang, remember) {
+    document.documentElement.dataset.lang = lang;
+    document.documentElement.lang = lang;
+    buttons.forEach(b => b.setAttribute('aria-pressed', b.dataset.setLang === lang));
+    if (remember) try { localStorage.setItem('toothcraft-lang', lang); } catch (e) {}
+  }
+  buttons.forEach(b => b.onclick = () => set(b.dataset.setLang, true));
+
+  let lang = null;
+  try { lang = localStorage.getItem('toothcraft-lang'); } catch (e) {}
+  if (!lang) lang = /^(cs|sk)\b/i.test(navigator.language || '') ? 'cs' : 'en';
+  set(lang, false);
+})();
+</script>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+} }
+</script>
+<script src="models/toothcraft_cases.js" defer></script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// Case data comes from models/toothcraft_cases.js (built by models/convert.py).
+// Each case holds three meshes: 0 = damaged input, 1 = ToothCraft output, 2 = ground truth.
+const CASES = window.TOOTHCRAFT_CASES || [];
+const NAMES = [['Input scan', 'Vstupní sken'], ['ToothCraft', 'ToothCraft'], ["Technician's design", 'Návrh technika']];
+
+// Text that JS generates carries both languages too, so the switch keeps
+// working without re-rendering anything.
+function bi(en, cs) {
+  return `<span class="en">${en}</span><span class="cs">${cs}</span>`;
+}
+
+// jaw and tooth name are decoded from the FDI number (quadrant digit + tooth digit)
+const QUADRANT = { 1: ['upper', 'right', 'Horní', 'pravý'], 2: ['upper', 'left', 'Horní', 'levý'],
+                   3: ['lower', 'left', 'Dolní', 'levý'], 4: ['lower', 'right', 'Dolní', 'pravý'] };
+const TOOTH_EN = ['', 'central incisor', 'lateral incisor', 'canine', 'first premolar', 'second premolar',
+  'first molar', 'second molar', 'third molar'];
+const TOOTH_CS = ['', 'střední řezák', 'postranní řezák', 'špičák', 'první premolár', 'druhý premolár',
+  'první molár', 'druhý molár', 'třetí molár'];
+for (const c of CASES) {
+  const [jaw, side, jawCs, sideCs] = QUADRANT[Math.floor(c.fdi / 10)];
+  const n = c.fdi % 10;
+  c.jaw = jaw;
+  c.titleEn = `${jaw[0].toUpperCase() + jaw.slice(1)} ${side} ${TOOTH_EN[n]}`;
+  c.titleCs = `${jawCs} ${sideCs} ${TOOTH_CS[n]}`;
+  c.jawCs = jaw === 'upper' ? 'horní čelist' : 'dolní čelist';
+}
+
+const el = document.getElementById('viewer');
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setScissorTest(true);
+el.prepend(renderer.domElement);
+
+const scenes = [0, 1, 2].map(() => {
+  const s = new THREE.Scene();
+  s.add(new THREE.HemisphereLight(0xffffff, 0x9aa6b5, 1.5));
+  return s;
+});
+const camera = new THREE.PerspectiveCamera(30, 1, 0.01, 50);
+// one key light per scene, repositioned relative to the shared camera every frame
+const lights = scenes.map(s => { const l = new THREE.DirectionalLight(0xffffff, 1.7); s.add(l); return l; });
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 1.2;
+controls.addEventListener('start', () => { controls.autoRotate = false; });
+
+let mode = 'compare';
+let meshes = [];
+const labels = [], seps = [];
+
+// Format TC02 (models/build_cases.py): "TC02" magic, then three meshes of
+// nv,nf (u32) | positions u16x3 in [-1,1] | indices u32x3. Indices are 32-bit
+// because the scan meshes run past 65535 vertices.
+function decode(b64) {
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  if (String.fromCharCode(...bytes.subarray(0, 4)) !== 'TC02')
+    throw new Error('unexpected case data format');
+  const out = [];
+  let o = 4;
+  for (let m = 0; m < 3; m++) {
+    const dv = new DataView(bytes.buffer, o, 8), nv = dv.getUint32(0, true), nf = dv.getUint32(4, true);
+    o += 8;
+    // slice() copies, which also guarantees the alignment the typed arrays need
+    const q = new Uint16Array(bytes.buffer.slice(o, o + nv * 6)); o += nv * 6;
+    const f = new Uint32Array(bytes.buffer.slice(o, o + nf * 12)); o += nf * 12;
+    const pos = new Float32Array(nv * 3);
+    for (let i = 0; i < nv * 3; i++) pos[i] = (q[i] / 65535 - 0.5) * 2;
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    g.setIndex(new THREE.BufferAttribute(f, 1));
+    g.computeVertexNormals();
+    out.push(g);
+  }
+  return out;
+}
+
+const material = new THREE.MeshStandardMaterial({ color: 0xd3d8df, roughness: 0.6, metalness: 0, side: THREE.DoubleSide });
+
+function loadCase(i) {
+  const c = CASES[i];
+  meshes.forEach((m, k) => { scenes[k].remove(m); m.geometry.dispose(); });
+  const geoms = decode(c.data);
+  // centre all three on the damaged input so they stay registered with each other
+  geoms[0].computeBoundingBox();
+  const centre = geoms[0].boundingBox.getCenter(new THREE.Vector3());
+  meshes = geoms.map((g, k) => {
+    g.translate(-centre.x, -centre.y, -centre.z);
+    const m = new THREE.Mesh(g, material);
+    // volume z is the crown axis: +z for upper teeth, -z for lower; show every crown pointing up
+    m.rotation.x = c.jaw === 'upper' ? -Math.PI / 2 : Math.PI / 2;
+    scenes[k].add(m);
+    return m;
+  });
+  document.getElementById('case-title').innerHTML = bi(
+    `${c.titleEn} <small>FDI ${c.fdi} · ${c.jaw} jaw</small>`,
+    `${c.titleCs} <small>FDI ${c.fdi} · ${c.jawCs}</small>`);
+  document.querySelectorAll('#picker-row button').forEach(b => b.setAttribute('aria-pressed', b.dataset.i == i));
+}
+
+function panels() {
+  const w = el.clientWidth, h = el.clientHeight;
+  if (mode !== 'compare') return [{ scene: +mode, x: 0, y: 0, w, h }];
+  const rows = w < 640;
+  return [0, 1, 2].map(k => rows
+    ? { scene: k, x: 0, y: k * h / 3, w, h: h / 3 }
+    : { scene: k, x: k * w / 3, y: 0, w: w / 3, h });
+}
+
+function layoutOverlay() {
+  labels.forEach(l => l.remove()); seps.forEach(s => s.remove());
+  labels.length = seps.length = 0;
+  panels().forEach((p, k) => {
+    const l = document.createElement('div');
+    l.className = 'panel-label';
+    l.innerHTML = bi(NAMES[p.scene][0], NAMES[p.scene][1]);
+    l.style.left = p.x + p.w / 2 + 'px'; l.style.top = p.y + 12 + 'px';
+    el.appendChild(l); labels.push(l);
+    if (k > 0) {
+      const s = document.createElement('div'); s.className = 'panel-sep';
+      Object.assign(s.style, p.y > 0
+        ? { left: 0, right: 0, top: p.y + 'px', height: '1px' }
+        : { top: 0, bottom: 0, left: p.x + 'px', width: '1px' });
+      el.appendChild(s); seps.push(s);
+    }
+  });
+}
+
+function resize() {
+  renderer.setSize(el.clientWidth, el.clientHeight, false);
+  layoutOverlay();
+}
+new ResizeObserver(resize).observe(el);
+
+camera.position.set(0, 1.5, 4.1);
+controls.target.set(0, -0.05, 0);
+
+renderer.setAnimationLoop(() => {
+  controls.update();
+  const H = el.clientHeight;
+  for (const p of panels()) {
+    camera.aspect = p.w / p.h;
+    camera.zoom = Math.min(1, camera.aspect * 1.2);   // keep the model in frame in tall, narrow panels
+    camera.updateProjectionMatrix();
+    lights[p.scene].position.copy(camera.position).add(new THREE.Vector3(0.8, 1.2, 0).applyQuaternion(camera.quaternion));
+    renderer.setViewport(p.x, H - p.y - p.h, p.w, p.h);
+    renderer.setScissor(p.x, H - p.y - p.h, p.w, p.h);
+    renderer.render(scenes[p.scene], camera);
+  }
+});
+
+// Case picker: one row of FDI numbers
+const row = document.getElementById('picker-row');
+CASES.forEach((c, i) => {
+  const b = document.createElement('button');
+  b.textContent = c.fdi; b.title = c.titleEn; b.dataset.i = i;
+  b.onclick = () => loadCase(i);
+  row.appendChild(b);
+});
+
+document.querySelectorAll('#modes button').forEach(b => b.onclick = () => {
+  mode = b.dataset.mode;
+  document.querySelectorAll('#modes button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  layoutOverlay();
+});
+if (innerWidth < 640) document.querySelector('#modes [data-mode="1"]').click();
+
+if (CASES.length) loadCase(0);
+else document.getElementById('case-title').innerHTML =
+  bi('Model data not found.', 'Data modelů se nepodařilo načíst.');
+</script>
+</body>
+</html>
