@@ -94,6 +94,9 @@
   .fig figcaption { color: #5a6778; }
   .hero-figure { margin-top: 36px; }
 
+  .fig-scroll { overflow-x: auto; border-radius: 10px; border: 1px solid var(--border); }
+  .fig-scroll img { width: 720px; max-width: none; display: block; }
+
   .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 18px 0 0; padding: 0; list-style: none; }
   .chips li { font-size: 15px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 5px 14px; }
   .chips li::before { content: "✓"; color: var(--mint); font-weight: 700; margin-right: 7px; }
@@ -101,7 +104,7 @@
   /* Status block (what it does / does not do yet) */
   .status-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 8px; }
   @media (max-width: 760px) { .status-grid { grid-template-columns: 1fr; } }
-  .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; }
+  .status-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 20px 22px; min-width: 0; }
   .status-card.good { border-top: 4px solid var(--mint); }
   .status-card.todo { border-top: 4px solid var(--amber); }
   .status-card p { margin: 0; color: var(--muted); font-size: 16px; }
@@ -262,6 +265,16 @@
           <p class="en" style="margin-top:10px">On speed: the network itself runs in <strong>seconds</strong>. The manual preparation and export around it add a few minutes per case. Automating that is routine work, set up once per scanner and export format.</p>
           <p class="cs">Jemný povrchový detail. Fisury a hrany zatím vycházejí vyhlazené, takže výsledek je spíš výchozí tvar pro technika než hotová náhrada. Přesně na tom teď pracujeme a právě tady by nám skeny z laboratoře pomohly nejvíc.</p>
           <p class="cs" style="margin-top:10px">K rychlosti: samotná síť běží v <strong>sekundách</strong>. Ruční příprava a export kolem toho přidají několik minut na případ. Automatizace je rutinní práce, nastaví se jednou pro daný skener a formát.</p>
+
+          <div style="margin-top:16px">
+            <span class="eyebrow en" style="color:var(--amber); background:var(--amber-soft)">In progress</span>
+            <span class="eyebrow cs" style="color:var(--amber); background:var(--amber-soft)">Připravujeme</span>
+            <figure class="fig-scroll" style="margin-top:10px">
+              <img src="assets/future_detail.png" alt="Three molars: ground truth on top, next to output from a higher-detail model currently in development on the bottom, showing closer fissure and cusp detail.">
+            </figure>
+            <figcaption class="en">Where we are headed: ground truth (top) next to early output from a higher-fidelity model we're developing (bottom). Not part of ToothCraft yet. Scroll to see all three teeth.</figcaption>
+            <figcaption class="cs">Kam směřujeme: ground truth (nahoře) vedle prvních výstupů modelu s vyšší věrností detailu, na kterém pracujeme (dole). Zatím není součástí ToothCraft. Posunutím zobrazíte všechny tři zuby.</figcaption>
+          </div>
         </div>
       </div>
     </div>
