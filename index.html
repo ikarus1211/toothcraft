@@ -218,10 +218,10 @@
       </div>
 
       <figure class="fig hero-figure">
-        <img class="en" src="assets/generated/result_crown_en.png" alt="A molar prepared for a crown: the input scan, the technician's design, and the ToothCraft output side by side.">
-        <img class="cs" src="assets/generated/result_crown_cs.png" alt="Molár připravený na korunku: vstupní sken, návrh technika a výstup ToothCraft vedle sebe.">
-        <figcaption class="en">A real case: a molar prepared for a crown. ToothCraft sees only the left column. The middle column is what it generated; the right column is what a technician designed for the same case.</figcaption>
-        <figcaption class="cs">Reálný případ: molár připravený na korunku. ToothCraft vidí pouze levý sloupec. Prostřední sloupec vygeneroval sám, pravý je návrh technika ke stejnému případu.</figcaption>
+        <img class="en" src="assets/generated/result_crown_en.png" alt="A molar missing from the arch: the input scan, the ground truth, and the ToothCraft output side by side.">
+        <img class="cs" src="assets/generated/result_crown_cs.png" alt="Molár chybějící v čelisti: vstupní sken, ground truth a výstup ToothCraft vedle sebe.">
+        <figcaption class="en">A real case: a molar missing from the arch. ToothCraft sees only the left column. The middle column is what it generated; the right column is the ground truth, the real tooth that was digitally removed to create this example.</figcaption>
+        <figcaption class="cs">Reálný případ: molár chybějící v čelisti. ToothCraft vidí pouze levý sloupec. Prostřední sloupec vygeneroval sám, pravý je ground truth, skutečný zub digitálně odebraný ze skenu pro účely této ukázky.</figcaption>
       </figure>
     </div>
   </div>
@@ -242,10 +242,10 @@
       </ul>
 
       <figure class="fig" style="margin-top:28px">
-        <img class="en" src="assets/generated/result_cases_en.png" alt="Three real cases of missing teeth: input scan, technician's design, and ToothCraft output.">
-        <img class="cs" src="assets/generated/result_cases_cs.png" alt="Tři reálné případy chybějících zubů: vstupní sken, návrh technika a výstup ToothCraft.">
-        <figcaption class="en">Three further cases: a missing incisor, a prepared molar and a prepared premolar. In each row the scan context is identical, so the only thing that changes is the tooth.</figcaption>
-        <figcaption class="cs">Tři další případy: chybějící řezák, preparovaný molár a preparovaný premolár. V každém řádku je okolní sken stejný, mění se jen zub.</figcaption>
+        <img class="en" src="assets/generated/result_cases_en.png" alt="Three real cases of missing or damaged teeth: input scan, ground truth, and ToothCraft output.">
+        <img class="cs" src="assets/generated/result_cases_cs.png" alt="Tři reálné případy chybějících nebo poškozených zubů: vstupní sken, ground truth a výstup ToothCraft.">
+        <figcaption class="en">Three further cases: a missing lateral incisor, a missing canine and a damaged molar. In each row the scan context is identical, so the only thing that changes is the tooth.</figcaption>
+        <figcaption class="cs">Tři další případy: chybějící postranní řezák, chybějící špičák a poškozený molár. V každém řádku je okolní sken stejný, mění se jen zub.</figcaption>
       </figure>
 
       <div class="status-grid" style="margin-top:32px">
@@ -272,8 +272,8 @@
     <div class="wrap">
       <h2 class="en">Turn it around yourself</h2>
       <h2 class="cs">Prohlédněte si to ve 3D</h2>
-      <p class="lead-p en">Four cases you can inspect from any angle: an incisor, a premolar and two molars. Pick a tooth by its number. All three views rotate together, so you can put the ToothCraft result straight next to what the technician designed for the same scan.</p>
-      <p class="lead-p cs">Čtyři případy, které si můžete prohlédnout z libovolného úhlu: řezák, premolár a dva moláry. Vyberte zub podle čísla. Všechny tři pohledy se otáčejí současně, takže výsledek ToothCraft postavíte přímo vedle toho, co k témuž skenu navrhl technik.</p>
+      <p class="lead-p en">Nine cases you can inspect from any angle: incisors, a canine, a premolar and molars, in both jaws. Pick a tooth by its number. All three views rotate together, so you can put the ToothCraft result straight next to the ground truth for the same scan.</p>
+      <p class="lead-p cs">Devět případů, které si můžete prohlédnout z libovolného úhlu: řezáky, špičák, premolár a moláry, v obou čelistech. Vyberte zub podle čísla. Všechny tři pohledy se otáčejí současně, takže výsledek ToothCraft postavíte přímo vedle ground truth k témuž skenu.</p>
 
       <div class="viewer-shell">
         <div class="picker">
@@ -287,7 +287,7 @@
             <button data-mode="compare" aria-pressed="true"><span class="en">Side by side</span><span class="cs">Vedle sebe</span></button>
             <button data-mode="0" aria-pressed="false"><span class="en">Scan</span><span class="cs">Sken</span></button>
             <button data-mode="1" aria-pressed="false">ToothCraft</button>
-            <button data-mode="2" aria-pressed="false"><span class="en">Technician</span><span class="cs">Technik</span></button>
+            <button data-mode="2" aria-pressed="false"><span class="en">Ground truth</span><span class="cs">Ground truth</span></button>
           </div>
         </div>
         <div id="viewer">
@@ -463,7 +463,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 // Case data comes from models/toothcraft_cases.js (built by models/convert.py).
 // Each case holds three meshes: 0 = damaged input, 1 = ToothCraft output, 2 = ground truth.
 const CASES = window.TOOTHCRAFT_CASES || [];
-const NAMES = [['Input scan', 'Vstupní sken'], ['ToothCraft', 'ToothCraft'], ["Technician's design", 'Návrh technika']];
+const NAMES = [['Input scan', 'Vstupní sken'], ['ToothCraft', 'ToothCraft'], ['Ground truth', 'Ground truth']];
 
 // Text that JS generates carries both languages too, so the switch keeps
 // working without re-rendering anything.
@@ -539,7 +539,7 @@ function decode(b64) {
   return out;
 }
 
-const material = new THREE.MeshStandardMaterial({ color: 0xd3d8df, roughness: 0.6, metalness: 0, side: THREE.DoubleSide });
+const material = new THREE.MeshStandardMaterial({ color: 0xd3d8df, roughness: 0.4, metalness: 0.05, side: THREE.DoubleSide });
 
 function loadCase(i) {
   const c = CASES[i];
@@ -552,7 +552,7 @@ function loadCase(i) {
     g.translate(-centre.x, -centre.y, -centre.z);
     const m = new THREE.Mesh(g, material);
     // volume z is the crown axis: +z for upper teeth, -z for lower; show every crown pointing up
-    m.rotation.x = c.jaw === 'upper' ? -Math.PI / 2 : Math.PI / 2;
+    m.rotation.x = c.jaw === 'upper' ? Math.PI / 2 : -Math.PI / 2;
     scenes[k].add(m);
     return m;
   });
